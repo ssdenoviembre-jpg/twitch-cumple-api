@@ -28,6 +28,7 @@ export default async function handler(req, res) {
     return { d, m };
   }
 
+  // GUARDAR cumpleaños
   if (action === "set") {
     const val = validarFecha(date);
     if (!val) return res.send("❌ Usa DD/MM");
@@ -41,6 +42,32 @@ export default async function handler(req, res) {
     return res.send(`✅ ${user}, guardado (${date})`);
   }
 
+  // 🏆 RANKING DE PRÓXIMOS CUMPLEAÑOS
+  if (action === "top") {
+    const response = await supabase("cumpleaños", "GET");
+    const data = await response.json();
+
+    const today = new Date();
+
+    const lista = data.map(u => {
+      let next = new Date(today.getFullYear(), u.month - 1, u.day);
+      if (next < today) next.setFullYear(today.getFullYear() + 1);
+
+      const diff = Math.ceil((next - today) / (1000 * 60 * 60 * 24));
+
+      return { user: u.user_name, diff };
+    });
+
+    lista.sort((a, b) => a.diff - b.diff);
+
+    const top = lista.slice(0, 5);
+
+    const texto = top.map(u => `${u.user} (${u.diff}d)`).join(", ");
+
+    return res.send(`🎂 Próximos cumpleaños: ${texto}`);
+  }
+
+  // CONSULTAR cumpleaños individual
   const target = (user || "").toLowerCase();
 
   const response = await supabase(
@@ -66,30 +93,5 @@ export default async function handler(req, res) {
   if (diff === 0) return res.send(`🎉 Hoy cumple ${user}`);
   if (diff === 1) return res.send(`⏰ ${user} cumple mañana`);
 
-  // RANKING
-if (action === "top") {
-  const response = await supabase("cumpleaños", "GET");
-  const data = await response.json();
-
-  const today = new Date();
-
-  const lista = data.map(u => {
-    let next = new Date(today.getFullYear(), u.month - 1, u.day);
-    if (next < today) next.setFullYear(today.getFullYear() + 1);
-
-    const diff = Math.ceil((next - today) / (1000 * 60 * 60 * 24));
-
-    return { user: u.user_name, diff };
-  });
-
-  lista.sort((a, b) => a.diff - b.diff);
-
-  const top = lista.slice(0, 5);
-
-  const texto = top.map(u => `${u.user} (${u.diff}d)`).join(", ");
-
-  return res.send(`🎂 Próximos cumpleaños: ${texto}`);
-}
-  
   return res.send(`🎂 A ${user} le faltan ${diff} días`);
 }
